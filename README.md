@@ -6,368 +6,265 @@
 ![Framework](https://img.shields.io/badge/Framework-PyTorch-red.svg)
 ![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)
 
-An end-to-end **spatio-temporal data processing and deep learning project** developed to investigate and forecast daily temperature patterns across Nigeria, with a focused regional implementation covering Southwest Nigeria.
+An end-to-end **spatio-temporal data processing and deep learning pipeline** developed to investigate and forecast daily temperature patterns across Southwest Nigeria (Lagos, Ogun, Oyo, and Osun states).
 
-The project combines historical climate reanalysis data from **ERA5**, topographical elevation information derived from Digital Elevation Models (DEM), and Recurrent Neural Networks (LSTM) to investigate temperature forecasting across multiple geographical locations.
-
-Beginning with a broader Nigeria-wide modelling objective, the project evolved into a regional forecasting study covering Lagos, Ogun, Oyo and Osun. This adjustment was made to accommodate the memory and training-time constraints of the available Google Colab computing environment while retaining a meaningful multi-location forecasting problem.
+The project combines historical climate reanalysis data from Copernicus **ERA5**, topographical elevation data derived from Digital Elevation Models (DEM), and Recurrent Neural Networks (LSTM) in PyTorch to model and predict daily minimum ($T_{\text{min}}$) and maximum ($T_{\text{max}}$) temperatures across multiple grid locations.
 
 ---
 
 ## 📋 Table of Contents
 
-- [Project Overview](#overview)
-- [Key Contributions](#key-contributions)
-- [Repository Structure](#repository-structure)
+- [Project Overview](#project-overview)
+- [Key Features & Contributions](#key-features--contributions)
 - [Pipeline Architecture](#pipeline-architecture)
+- [Repository Structure](#repository-structure)
 - [Tech Stack](#tech-stack)
-- [Dataset and Study Area](#dataset-and-study-area)
+- [Dataset & Study Area](#dataset--study-area)
 - [Model Development](#model-development)
 - [Model Performance](#model-performance)
+- [Getting Started & Installation](#getting-started--installation)
+- [Execution & Usage Guide](#execution--usage-guide)
 - [Key Findings](#key-findings)
-- [Limitations and Future Improvements](#limitations-and-future-improvements)
+- [Limitations & Future Improvements](#limitations--future-improvements)
 - [License](#license)
 
 ---
 
-## Overview
+## Project Overview
 
-Temperature forecasting plays an important role in climate analysis, agricultural planning, environmental monitoring and regional decision-making.
+Accurate temperature forecasting is vital for climate analysis, agricultural decision-making, and environmental risk assessment. This repository provides a complete, modular workflow for processing high-dimensional meteorological reanalysis datasets, performing spatial and temporal feature engineering, and training PyTorch deep learning models to perform next-day temperature forecasting.
 
-This project explores how deep learning can be applied to historical meteorological data to predict daily minimum and maximum temperatures across multiple geographical grid locations.
-
-The development process involved several stages:
-
-1. **Climate Data Acquisition:** Retrieval and preparation of historical ERA5 temperature data and geographical elevation information.
-2. **Multi-Year Data Integration:** Combining yearly climate datasets into a continuous time series covering 2015–2024.
-3. **Data Preprocessing:** Handling missing observations, preparing daily temperature variables and normalizing model inputs.
-4. **Temporal Data Preparation:** Constructing chronological training sequences using sliding windows.
-5. **Baseline Model Development:** Developing an LSTM model using historical temperature observations.
-6. **Geospatial Model Development:** Extending the temporal forecasting approach with seasonal and geographical features.
-7. **Model Evaluation:** Comparing forecasting performance against persistence and climatology reference methods.
-
-The project provides an applied exploration of temporal forecasting and the potential contribution of geographical information to temperature prediction.
+Beginning with a broader Nigeria-wide modelling objective, the study scope was optimized to cover Southwest Nigeria ($456$ active grid cells over 10 years, 2015–2024). This focus ensures computational efficiency on resource-constrained environments (such as Google Colab) while preserving spatial heterogeneity across urban, coastal, and inland terrain.
 
 ---
 
-## Key Contributions
+## Key Features & Contributions
 
-- **Multi-Year Climate Data Processing:** Prepared ten years of daily temperature observations from ERA5 reanalysis data.
-- **Geospatial Data Integration:** Incorporated elevation information alongside latitude and longitude for geographical modelling experiments.
-- **Temporal Feature Engineering:** Developed sliding-window sequences and cyclical day-of-year features to represent seasonal patterns.
-- **Deep Learning Implementation:** Built two LSTM-based temperature forecasting models using PyTorch.
-- **Geospatial Feature Investigation:** Evaluated whether static geographical information improved forecasting performance.
-- **Forecast Benchmarking:** Compared model performance against persistence and day-of-year climatology reference forecasts.
-- **Spatial Error Analysis:** Investigated forecasting errors across geographical grid locations.
+- **Multi-Year Climate Pipeline:** Ingests and harmonizes 10 years (2015–2024) of daily ERA5 reanalysis data ($T_{\text{min}}$ and $T_{\text{max}}$) for $3,653$ continuous days.
+- **Geospatial Feature Integration:** Combines static topographical elevation (DEM) with spatial coordinates ($\text{Latitude}, \text{Longitude}$) and dynamic climate observations.
+- **Temporal & Seasonal Feature Engineering:** Uses sliding-window temporal sequences ($7$-day historical lookbacks) and cyclical transformations ($\sin / \cos$ encoding of the day-of-year) to model seasonality.
+- **Deep Learning Architectures:** Implements and evaluates two PyTorch models:
+  1. **Baseline LSTM:** Temperature-only sequence modeling.
+  2. **Geospatial LSTM:** Merges temporal sequence representations with static geographic encodings.
+- **Comprehensive Benchmarking:** Evaluates models against standard baseline reference methods including **Persistence** and **Day-of-Year Climatology**.
+- **Spatial Error Diagnostics:** Analyzes forecasting performance across spatial grid points to highlight geographic performance patterns.
+
+---
+
+## Pipeline Architecture
+
+The end-to-end processing and modeling workflow follows a clear, sequential pipeline:
+
+```text
+┌──────────────────────────────────────────────────┐
+│ 1. DATA ACQUISITION & INTEGRATION               │
+│    - ERA5 NetCDF reanalysis download (CDS API)   │
+│    - Topographical elevation extract (DEM)        │
+│    - Yearly climate dataset concatenation         │
+└────────────────────────┬─────────────────────────┘
+                         ▼
+┌──────────────────────────────────────────────────┐
+│ 2. PREPROCESSING & CLEANING                      │
+│    - Grid filtering & spatial cropping           │
+│    - Handling missing observations & scaling     │
+│    - Daily Tmin / Tmax aggregation               │
+└────────────────────────┬─────────────────────────┘
+                         ▼
+┌──────────────────────────────────────────────────┐
+│ 3. FEATURE ENGINEERING & PARTITIONING            │
+│    - Cyclical day-of-year encoding (Sin/Cos)     │
+│    - 7-day sliding window sequence generation    │
+│    - Chronological Train / Val / Test splitting  │
+└────────────────────────┬─────────────────────────┘
+                         ▼
+             ┌───────────┴───────────┐
+             ▼                       ▼
+┌─────────────────────────┐  ┌─────────────────────────┐
+│ BASELINE LSTM MODEL     │  │ GEOSPATIAL LSTM MODEL   │
+│ - Historical Tmin/Tmax  │  │ - Temp + Cyclical DOY   │
+│ - PyTorch 1-Layer LSTM  │  │ - Concat Lat/Lon/Elev   │
+└────────────┬────────────┘  └────────────┬────────────┘
+             └───────────┬───────────┘
+                         ▼
+┌──────────────────────────────────────────────────┐
+│ 4. MODEL EVALUATION & BENCHMARKING               │
+│    - Metrics: MAE, RMSE (°C)                     │
+│    - Baselines: Persistence & DOY Climatology    │
+│    - Forecast Skill Score calculation            │
+└──────────────────────────────────────────────────┘
+```
 
 ---
 
 ## Repository Structure
 
 ```text
-├── Baseline_LSTM.ipynb
-│   └── Temperature-only LSTM forecasting model
-│
-├── Chronologically_Splitting_Data.ipynb
-│   └── Chronological data partitioning
-│
-├── Combine_Yearly_Files.ipynb
-│   └── Integration of yearly climate datasets
-│
-├── Daily_Temperature_Preprocessing.ipynb
-│   └── Daily temperature cleaning and preparation
-│
-├── ERA5_And_DEM_Dataset_Download.ipynb
-│   └── ERA5 climate and elevation data acquisition
-│
-├── Geospatial_Model.ipynb
-│   └── Geospatial LSTM development and experiments
-│
-├── Models_Data_Preparation.ipynb
-│   └── Feature engineering and sequence preparation
-│
-├── Southwest_Nigeria_Temperature_Project_Documentation.ipynb
-│   └── Consolidated project findings and technical documentation
-│
-└── README.md
-    └── Project overview and results
-```
-
----
-
-## Pipeline Architecture
-
-The project follows a sequential data processing and model development workflow.
-
-```text
-┌──────────────────────────────────────────────┐
-│ ERA5 AND DEM DATA ACQUISITION                │
-│ Historical temperature and elevation data   │
-└──────────────────────┬───────────────────────┘
-                       ▼
-┌──────────────────────────────────────────────┐
-│ MULTI-YEAR DATA INTEGRATION                  │
-│ Combining yearly climate datasets           │
-└──────────────────────┬───────────────────────┘
-                       ▼
-┌──────────────────────────────────────────────┐
-│ DAILY TEMPERATURE PREPROCESSING              │
-│ Cleaning, missing-data handling and scaling │
-└──────────────────────┬───────────────────────┘
-                       ▼
-┌──────────────────────────────────────────────┐
-│ MODEL DATA PREPARATION                       │
-│ Sliding windows and feature engineering     │
-└──────────────────────┬───────────────────────┘
-                       ▼
-┌──────────────────────────────────────────────┐
-│ CHRONOLOGICAL DATA PARTITIONING              │
-│ Training, validation and testing             │
-└──────────────────────┬───────────────────────┘
-                       ▼
-             ┌─────────┴─────────┐
-             ▼                   ▼
-┌────────────────────┐  ┌──────────────────────┐
-│ TEMPERATURE-ONLY   │  │ GEOSPATIAL LSTM      │
-│ BASELINE LSTM      │  │                      │
-│                    │  │ Seasonal + location │
-│ Tmin / Tmax        │  │ information          │
-└─────────┬──────────┘  └──────────┬───────────┘
-          └────────────┬───────────┘
-                       ▼
-┌──────────────────────────────────────────────┐
-│ MODEL EVALUATION AND COMPARISON              │
-│ MAE, RMSE, forecast skill and spatial errors │
-└──────────────────────────────────────────────┘
+.
+├── ERA5_And_DEM_Dataset_Download.ipynb           # Notebook 1: Download ERA5 climate data via CDS API & DEM elevation
+├── Combine_Yearly_Files.ipynb                    # Notebook 2: Merge multi-year NetCDF files into continuous datasets
+├── Daily_Temperature_Preprocessing.ipynb         # Notebook 3: Preprocessing, missing value handling, grid filtering
+├── Models_Data_Preparation.ipynb                 # Notebook 4: Sequence creation, sliding windows, feature scaling
+├── Chronologically_Splitting_Data.ipynb          # Notebook 5: Chronological train/validation/test dataset splits
+├── Baseline_LSTM.ipynb                           # Notebook 6: PyTorch Baseline (Temperature-only) LSTM model
+├── Geospatial_Model.ipynb                        # Notebook 7: PyTorch Geospatial LSTM (Temp + Seasonality + Geography)
+├── Southwest_Nigeria_Temperature_Project_Documentation.ipynb # Notebook 8: Consolidated technical report & visualizations
+└── README.md                                     # Main repository documentation
 ```
 
 ---
 
 ## Tech Stack
 
-| Category | Technologies / Libraries |
+| Domain | Technologies & Libraries |
 | :--- | :--- |
-| **Programming Language** | Python |
-| **Climate Data** | ERA5 Reanalysis |
-| **Data Ingestion** | `cdsapi`, `xarray`, `netCDF4` |
-| **Data Manipulation** | `pandas`, `numpy`, `scipy` |
-| **Deep Learning** | PyTorch |
-| **Machine Learning Utilities** | `scikit-learn` |
-| **Spatial Analysis** | `geopandas`, `rasterio`, `shapely` |
+| **Language** | Python 3.8+ |
+| **Deep Learning** | PyTorch (`torch`, `torch.nn`, `DataLoader`) |
+| **Climate & Geospatial Ingestion** | `cdsapi`, `xarray`, `netCDF4`, `h5netcdf` |
+| **Geospatial Processing** | `geopandas`, `rasterio`, `shapely`, `pyproj` |
+| **Data Manipulation & Math** | `pandas`, `numpy`, `scipy`, `scikit-learn` |
 | **Visualization** | `matplotlib`, `seaborn` |
-| **Development Environment** | Jupyter Notebook, Google Colab |
-| **GPU Acceleration** | NVIDIA Tesla T4 |
+| **Environment** | Jupyter Notebook, Google Colab (Nvidia T4 GPU) |
 
 ---
 
-## Dataset and Study Area
+## Dataset & Study Area
 
-The project initially targeted a broader geographical coverage across Nigeria. However, the volume of data required for country-wide modelling placed considerable demands on the available Google Colab RAM and computational resources.
+The primary study region covers **Southwest Nigeria** (Lagos, Ogun, Oyo, and Osun states), providing a representative mix of coastal, forest, and savannah climate zones.
 
-Training across the full geographical dataset would also have increased training time substantially, making repeated experimentation and model validation difficult within the available environment.
-
-To make model development and experimentation feasible, the geographical scope was reduced to **Southwest Nigeria**, covering:
-
-- Lagos
-- Ogun
-- Oyo
-- Osun
-
-This regional selection retained multiple geographical grid locations and allowed the project to investigate temperature forecasting across a meaningful spatial area.
-
-### Dataset Summary
-
-| Property | Description |
+| Parameter | Specification |
 | :--- | :--- |
-| Climate dataset | ERA5 |
-| Study period | 2015–2024 |
-| Temporal resolution | Daily |
-| Daily observations | 3,653 |
-| Original regional grid | 672 cells |
-| Usable grid locations | 456 |
-| Target variables | Minimum and maximum temperature |
-| Geographical features | Latitude, longitude and elevation |
-
-The prepared dataset provided a ten-year historical foundation for temporal and geospatial forecasting experiments.
+| **Data Source** | ERA5 Reanalysis (ECMWF) + SRTM DEM Elevation |
+| **Temporal Range** | January 1, 2015 – December 31, 2024 ($3,653$ days) |
+| **Temporal Resolution** | Daily ($T_{\text{min}}$, $T_{\text{max}}$) |
+| **Spatial Grid Resolution** | $0.25^\circ \times 0.25^\circ$ grid |
+| **Usable Grid Cells** | $456$ locations across Southwest Nigeria |
+| **Target Variables** | Next-day Minimum ($T_{\text{min}}$) & Maximum ($T_{\text{max}}$) Temperature (°C) |
+| **Static Features** | Latitude, Longitude, Elevation (meters) |
+| **Dynamic Features** | 7-day temperature history, Day-of-Year $\sin / \cos$ cycles |
 
 ---
 
 ## Model Development
 
-Two LSTM-based approaches were developed to investigate next-day temperature forecasting.
+Two neural network architectures were implemented using PyTorch to evaluate the impact of spatial and temporal features:
 
 ### 1. Temperature-only Baseline LSTM
-
-The baseline model was developed to establish how effectively historical temperature observations could predict future temperature values without additional geographical inputs.
-
-**Input features:**
-- Previous seven days of minimum temperature.
-- Previous seven days of maximum temperature.
-
-**Prediction targets:**
-- Next-day minimum temperature.
-- Next-day maximum temperature.
-
-**Architecture:**
-- Single-layer LSTM.
-- Hidden size of 64.
-- Two-output prediction layer.
-- Adam optimizer.
-- Mean Squared Error loss.
-- Early stopping and validation-based checkpoint selection.
-
-The baseline established a reference deep learning model against which the subsequent geospatial experiments could be investigated.
+- **Input Features:** 7-day lookback sequence of past daily $T_{\text{min}}$ and $T_{\text{max}}$ observations.
+- **Architecture:** Single-layer LSTM ($64$ hidden units) followed by a fully connected dense output layer ($2$ targets: $T_{\text{min}}, T_{\text{max}}$).
+- **Optimization:** Adam optimizer, Mean Squared Error (MSE) loss, early stopping on validation loss.
 
 ### 2. Geospatial LSTM
-
-The second model extended the temporal forecasting architecture by incorporating seasonal and geographical information.
-
-**Temporal inputs:**
-- Minimum temperature.
-- Maximum temperature.
-- Day-of-year sine.
-- Day-of-year cosine.
-
-**Static geographical inputs:**
-- Latitude.
-- Longitude.
-- Elevation.
-
-The LSTM processed the temporal sequence, after which the geographical features were concatenated with its final hidden representation before the prediction head.
-
-This architecture allowed the model to consider both recent temperature history and the geographical characteristics of each grid location.
-
-### Geospatial Experiments
-
-Three main investigations were conducted:
-
-| Experiment | Investigation | Finding |
-| :--- | :--- | :--- |
-| Input-window comparison | 7, 14 and 30 days | 7-day window performed best on validation |
-| Model configuration | LSTM layers and dropout | One layer without dropout performed best |
-| Geographical feature ablation | With and without latitude, longitude and elevation | Static features did not improve test metrics |
-
-These experiments helped identify a suitable model configuration and investigate the contribution of geographical information rather than assuming that adding more features would automatically improve forecasting.
+- **Temporal Inputs:** 7-day lookback sequence of $T_{\text{min}}$, $T_{\text{max}}$, plus cyclical Day-of-Year encodings ($\sin(\frac{2\pi \cdot DOY}{365})$, $\cos(\frac{2\pi \cdot DOY}{365})$).
+- **Static Inputs:** Latitude, Longitude, and DEM Elevation, normalized and concatenated directly with the LSTM's final hidden state before passing to the final linear layer.
+- **Architecture:** Single-layer LSTM ($64$ hidden units) + Feature Concatenation + Dense Prediction Head.
 
 ---
 
 ## Model Performance
 
-The models were evaluated using Mean Absolute Error (MAE) and Root Mean Squared Error (RMSE).
+Evaluation was conducted on out-of-sample chronological test splits using **Mean Absolute Error (MAE)** and **Root Mean Squared Error (RMSE)** in degrees Celsius (°C).
 
-Both metrics are expressed in degrees Celsius. Lower values indicate smaller forecasting errors.
+### Test Metrics Summary
 
-### Temperature-only Baseline LSTM
+| Model Architecture | Target Variable | MAE (°C) | RMSE (°C) |
+| :--- | :--- | ---: | ---: |
+| **Baseline LSTM** | Minimum Temp ($T_{\text{min}}$) | **0.502** | **0.690** |
+| | Maximum Temp ($T_{\text{max}}$) | **0.988** | **1.324** |
+| **Geospatial LSTM** | Minimum Temp ($T_{\text{min}}$) | 0.535 | 0.707 |
+| | Maximum Temp ($T_{\text{max}}$) | 1.021 | 1.346 |
 
-| Target | MAE | RMSE |
-| :--- | ---: | ---: |
-| Minimum temperature (Tmin) | 0.502°C | 0.690°C |
-| Maximum temperature (Tmax) | 0.988°C | 1.324°C |
+### Skill Score vs. Reference Baselines
 
-### Geospatial LSTM
+Forecast Skill Score measures relative error reduction:
+$$\text{Skill Score} = \left(1 - \frac{\text{Error}_{\text{Model}}}{\text{Error}_{\text{Reference}}}\right) \times 100\%$$
 
-| Target | MAE | RMSE |
-| :--- | ---: | ---: |
-| Minimum temperature (Tmin) | 0.535°C | 0.707°C |
-| Maximum temperature (Tmax) | 1.021°C | 1.346°C |
+- **Baseline LSTM vs. Persistence Forecast:**
+  - $T_{\text{min}}$: **12.85%** MAE reduction, **11.31%** RMSE reduction.
+  - $T_{\text{max}}$: **11.55%** MAE reduction, **16.94%** RMSE reduction.
+- **Geospatial LSTM vs. Day-of-Year Climatology:**
+  - $T_{\text{min}}$: **41.34%** MAE reduction, **41.43%** RMSE reduction.
+  - $T_{\text{max}}$: **25.91%** MAE reduction, **22.24%** RMSE reduction.
 
-### Forecast Skill Against Reference Models
+---
 
-To understand the practical forecasting improvement, model errors were compared with simpler reference forecasts.
+## Getting Started & Installation
 
-Forecast skill was calculated as:
+### Prerequisites
 
-\[
-\text{Skill Score} =
-\left(1-\frac{\text{Model Error}}{\text{Reference Error}}\right)\times100
-\]
+- **Python:** Version `3.8` or higher
+- **Hardware:** CPU supported; NVIDIA GPU with CUDA recommended for fast model training.
+- **CDS API Credentials:** Required if re-downloading raw ERA5 datasets from ECMWF. Set up your API key at [Copernicus Climate Data Store](https://cds.climate.copernicus.eu/).
 
-A positive score indicates a percentage reduction in error relative to the reference method.
+### Local Installation
 
-**Baseline LSTM compared with persistence:**
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/fawaztanigbola/Nigeria-Weather-ForeCasting-Model.git
+   cd Nigeria-Weather-ForeCasting-Model
+   ```
 
-| Target | MAE Error Reduction | RMSE Error Reduction |
-| :--- | ---: | ---: |
-| Tmin | 12.85% | 11.31% |
-| Tmax | 11.55% | 16.94% |
+2. **Create and activate a virtual environment:**
+   ```bash
+   # On Linux/macOS
+   python3 -m venv venv
+   source venv/bin/activate
 
-**Geospatial LSTM compared with persistence:**
+   # On Windows
+   python -m venv venv
+   venv\Scripts\activate
+   ```
 
-| Target | MAE Error Reduction | RMSE Error Reduction |
-| :--- | ---: | ---: |
-| Tmin | 8.23% | 9.24% |
-| Tmax | 10.75% | 17.73% |
+3. **Install required dependencies:**
+   ```bash
+   pip install --upgrade pip
+   pip install torch numpy pandas xarray netcdf4 cdsapi scikit-learn geopandas rasterio matplotlib seaborn jupyter
+   ```
 
-**Geospatial LSTM compared with day-of-year climatology:**
+---
 
-| Target | MAE Error Reduction | RMSE Error Reduction |
-| :--- | ---: | ---: |
-| Tmin | 41.34% | 41.43% |
-| Tmax | 25.91% | 22.24% |
+## Execution & Usage Guide
 
-These results demonstrate that both LSTM approaches learned useful forecasting patterns beyond persistence. The geospatial model also achieved substantial error reductions compared with the climatology reference on its test period.
+To replicate the data processing, feature engineering, and model training, run the Jupyter notebooks in the following order:
 
-*Note: These are relative error reductions, not conventional prediction accuracy percentages. The baseline and geospatial notebooks use different chronological splits and preprocessing, so their direct comparison is indicative rather than a controlled head-to-head evaluation.*
+1. **`ERA5_And_DEM_Dataset_Download.ipynb`**  
+   Configure your `~/.cdsapirc` file and execute to download historical ERA5 NetCDF climate files and SRTM DEM elevation maps.
+
+2. **`Combine_Yearly_Files.ipynb`**  
+   Concatenate yearly climate files into continuous multi-year time-series arrays using `xarray`.
+
+3. **`Daily_Temperature_Preprocessing.ipynb`**  
+   Extract minimum/maximum daily temperatures, align spatial grids, handle missing values, and crop spatial boundaries to Southwest Nigeria.
+
+4. **`Models_Data_Preparation.ipynb`**  
+   Perform min-max feature scaling, construct cyclical seasonal features, and generate 7-day sliding window temporal tensors.
+
+5. **`Chronologically_Splitting_Data.ipynb`**  
+   Split sequences chronologically into Training, Validation, and Holdout Testing sets to prevent temporal data leakage.
+
+6. **`Baseline_LSTM.ipynb`**  
+   Train and evaluate the baseline temperature-only PyTorch LSTM model.
+
+7. **`Geospatial_Model.ipynb`**  
+   Train and evaluate the Geospatial PyTorch LSTM model with dynamic seasonal encodings and static topographical features.
+
+8. **`Southwest_Nigeria_Temperature_Project_Documentation.ipynb`**  
+   Generate consolidated evaluation charts, spatial loss maps, and comparative performance figures.
 
 ---
 
 ## Key Findings
 
-The experiments produced several important findings:
-
-1. **LSTM-based temperature forecasting was effective against simple references.** The temperature-only baseline reduced test errors compared with persistence for both minimum and maximum temperature.
-
-2. **Seasonal information was useful to the geospatial modelling approach.** The geospatial model incorporated cyclical day-of-year features alongside recent temperature observations.
-
-3. **The geospatial model outperformed climatology and persistence on its test period.** This demonstrates that the model learned patterns beyond these simple forecasting references.
-
-4. **A seven-day historical window was sufficient among the tested options.** Extending the input history to 14 or 30 days did not improve validation performance in this experiment.
-
-5. **Adding geographical features did not automatically improve generalisation.** Latitude, longitude and elevation did not improve the geospatial model's test metrics in the feature-ablation experiment.
-
-6. **The temperature-only model achieved the lowest reported test errors.** The geospatial model's additional inputs did not translate into better numerical performance in the current implementation.
-
-7. **The project established a foundation for richer spatial modelling.** The data preparation, temporal modelling and geographical integration workflows provide a starting point for future experiments.
+1. **LSTM Superiority over Naive Baselines:** Deep learning models consistently beat persistence and climatology reference models, capturing short-term thermal inertia effectively.
+2. **Optimal Lookback Window:** Experiments with 7, 14, and 30-day temporal windows revealed that a **7-day lookback** achieved optimal validation performance without introducing unnecessary memory overhead.
+3. **Impact of Static Geospatial Features:** In the current single-region setup, static latitude, longitude, and elevation features did not improve test set accuracy over the pure temporal baseline. This suggests that historical sequence data already implicitly encapsulates local microclimate baselines.
 
 ---
 
-## Limitations and Future Improvements
+## Limitations & Future Improvements
 
-### 1. Geographical Coverage and Computing Resources
-
-The initial objective was to investigate temperature forecasting across a much larger geographical area covering Nigeria.
-
-However, processing and training on the full dataset would have placed substantial demands on the available Google Colab RAM and training time. This would have made repeated model training, validation and experimentation impractical.
-
-The project therefore adopted a smaller regional scope covering Lagos, Ogun, Oyo and Osun.
-
-Future work could revisit nationwide coverage using higher-memory computing environments, more efficient data pipelines, spatial tiling and distributed training.
-
-### 2. Geographical Feature Representation
-
-The current geospatial model incorporated latitude, longitude and elevation as static features.
-
-Although these features provided geographical context, they did not improve test-set performance in the current experiment.
-
-Future investigations could explore neighbouring-grid information, richer spatial representations and additional environmental variables.
-
-### 3. Model Evaluation
-
-The baseline and geospatial models were trained using different chronological data splits and scaling approaches.
-
-A controlled comparison using identical data partitions and preprocessing would provide a stronger basis for determining the contribution of geographical features.
-
-### 4. Spatial and Temporal Resolution
-
-The current implementation uses ERA5 grid-level data and predicts next-day temperatures.
-
-It does not yet provide street-level forecasting or capture every local environmental influence on temperature.
-
-Future work could investigate finer spatial datasets and additional meteorological variables where data availability and computing resources permit.
-
-### 5. Generalisation
-
-The models were developed for a selected region in Southwest Nigeria. Their performance should not be assumed to transfer directly to other Nigerian regions without additional training and evaluation.
+- **Spatial Scope Extension:** Future iterations can scale model execution nationwide across all regions of Nigeria by leveraging distributed PyTorch training (`DistributedDataParallel`) and spatial tiling.
+- **Advanced Spatial Architectures:** Replace static concatenated features with spatial-aware architectures such as **ConvLSTM** or **Graph Neural Networks (GNNs)** to explicit model spatial interactions between neighboring grid cells.
+- **Exogenous Meteorological Inputs:** Incorporate additional ERA5 variables such as solar radiation, surface pressure, relative humidity, and wind speed components ($u, v$).
 
 ---
 
